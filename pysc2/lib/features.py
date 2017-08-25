@@ -303,6 +303,8 @@ class Features(object):
           u.energy,
           u.transport_slots_taken,
           int(u.build_progress * 100),  # discretize
+          # add unit position
+          u.pos,
       ), dtype=np.int32)
 
     ui = obs.ui_data
@@ -550,4 +552,3 @@ class Features(object):
         for f in actions.FUNCTIONS])
 
     return actions.ValidActions(types, functions)
-
