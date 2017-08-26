@@ -26,6 +26,7 @@ from pysc2.lib import features
 from pysc2.lib import point
 from pysc2.lib import renderer_human
 from pysc2.lib import stopwatch
+from pysc2.lib import actions
 
 from s2clientprotocol import sc2api_pb2 as sc_pb
 
@@ -58,6 +59,19 @@ difficulties = {
     "9": sc_pb.CheatMoney,
     "A": sc_pb.CheatInsane,
 }
+
+_UNIT_POS_X = 7
+_UNIT_POS_Y = 8
+_PLAYER_RELATIVE = features.SCREEN_FEATURES.player_relative.index
+_PLAYER_FRIENDLY = 1
+_PLAYER_NEUTRAL = 3  # beacon/minerals
+_PLAYER_HOSTILE = 4
+_NO_OP = actions.FUNCTIONS.no_op.id
+_MOVE_SCREEN = actions.FUNCTIONS.Move_screen.id
+_ATTACK_SCREEN = actions.FUNCTIONS.Attack_screen.id
+_SELECT_ARMY = actions.FUNCTIONS.select_army.id
+_NOT_QUEUED = [0]
+_SELECT_ALL = [0]
 
 
 class SC2Env(environment.Base):
@@ -167,9 +181,9 @@ class SC2Env(environment.Base):
     create = sc_pb.RequestCreateGame(local_map=sc_pb.LocalMap(
         map_path=self._map.path, map_data=self._map.data(self._run_config)))
     create.player_setup.add(type=sc_pb.Participant)
-    create.player_setup.add(type=sc_pb.Computer,
-                            race=races[bot_race or "R"],
-                            difficulty=difficulties[difficulty or "1"])
+    # create.player_setup.add(type=sc_pb.Computer,
+    #                         race=races[bot_race or "R"],
+    #                         difficulty=difficulties[difficulty or "1"])
     join = sc_pb.RequestJoinGame(race=races[agent_race or "R"],
                                  options=interface)
 
@@ -213,13 +227,33 @@ class SC2Env(environment.Base):
     return self._step()
 
   @sw.decorate
-  def step(self, actions):
+  def step(self, drt):
     """Apply actions, step the world forward, and return observations."""
     if self._state == environment.StepType.LAST:
       return self.reset()
 
-    assert len(actions) == 1  # No multiplayer yet.
-    action = self._features.transform_action(self._obs.observation, actions[0])
+    # get the obs and know the unit pos
+    self._obs = self._controller.observe()
+    obs = self._features.transform_obs(self._obs.observation)
+
+    # check any unit is selected
+    if _MOVE_SCREEN not in obs['available_actions']:
+        action = actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
+    else:
+        pos_x = obs['single_select'][0][_UNIT_POS_X]
+        pos_y = obs['single_select'][0][_UNIT_POS_Y]
+        if drt == 0:
+            target = [int(pos_x), int(pos_y) + 1]
+        elif drt == 1:
+            target = [int(pos_x), int(pos_y) - 1]
+        elif drt == 2:
+            target = [int(pos_x) + 1, int(pos_y)]
+        elif drt == 3:
+            target = [int(pos_x) - 1, int(pos_y)]
+        else:
+            raise ValueError("Invalid direction code!")
+
+    action = self._features.transform_action(self._obs.observation, action)
     self._controller.act(action)
     self._state = environment.StepType.MID
     return self._step()
