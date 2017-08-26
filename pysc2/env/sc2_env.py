@@ -239,9 +239,23 @@ class SC2Env(environment.Base):
     # check any unit is selected
     if _MOVE_SCREEN not in obs['available_actions']:
         action = actions.FunctionCall(_SELECT_ARMY, [_SELECT_ALL])
+        action = self._features.transform_action(self._obs.obsercation, action)
+        self._controller.act(action)
+        self._state = environment.StepType.MID
+        self._step()
+        return self.step(drt)
     else:
-        pos_x = obs['single_select'][0][_UNIT_POS_X]
-        pos_y = obs['single_select'][0][_UNIT_POS_Y]
+        raw = self._obs.observation.raw_data
+        pos_x = 0
+        pos_y = 0
+        unit_n = 0
+        for u in raw.units:
+            pos_x += u.pos.x 
+            pos_y += u.pos.y
+            unit_n += 1
+        pos_x /= unit_n
+        pos_y /= unit_n
+
         if drt == 0:
             target = [int(pos_x), int(pos_y) + 1]
         elif drt == 1:

@@ -304,7 +304,8 @@ class Features(object):
           u.transport_slots_taken,
           int(u.build_progress * 100),  # discretize
           # add unit position
-          u.pos,
+          # u.pos.x,
+          # u.pos.y,
       ), dtype=np.int32)
 
     ui = obs.ui_data
